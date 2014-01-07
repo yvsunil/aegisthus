@@ -26,7 +26,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.cassandra.config.ConfigurationException;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.TypeParser;
 import org.apache.commons.cli.CommandLine;
@@ -147,6 +148,11 @@ public class SSTableExport {
 				convertors = new HashMap<String, AbstractType>();
 				convertors.put(SSTableScanner.COLUMN_NAME_KEY, TypeParser.parse(cmd.getOptionValue(COLUMN_NAME_TYPE)));
 			} catch (ConfigurationException e) {
+				System.err.println(e.getMessage());
+				HelpFormatter formatter = new HelpFormatter();
+				formatter.printHelp(usage, options);
+				System.exit(1);
+			} catch (SyntaxException e) {
 				System.err.println(e.getMessage());
 				HelpFormatter formatter = new HelpFormatter();
 				formatter.printHelp(usage, options);

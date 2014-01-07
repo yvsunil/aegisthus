@@ -23,7 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
-import org.apache.cassandra.config.ConfigurationException;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.TypeParser;
 import org.apache.commons.logging.Log;
@@ -170,6 +171,8 @@ public class AegSplit extends InputSplit implements Writable {
 				try {
 					convertors.put(parts[0], TypeParser.parse(parts[1]));
 				} catch (ConfigurationException e) {
+					throw new IOException(e);
+				} catch (SyntaxException e) {
 					throw new IOException(e);
 				}
 			}

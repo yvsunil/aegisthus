@@ -55,7 +55,9 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 		LOG.info("End: " + end);
 
 		//TODO: should switch over to Cassandra's mechanism
-		boolean promotedIndex = filename.matches("/[^/]+-ib-[^/]+$");
+		boolean promotedIndex = filename.matches("/[^/]+-ic-[^/]+$");
+        LOG.info("RR Promoted" + promotedIndex);
+        promotedIndex = true;
 		try {
 			scanner = new SSTableScanner(	new DataInputStream(split.getInput(ctx.getConfiguration())),
 											split.getConvertors(),

@@ -16,6 +16,8 @@
 package com.netflix;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -35,6 +37,8 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
+import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -121,19 +125,19 @@ public class Aegisthus extends Configured implements Tool {
 
 	@Override
 	public int run(String[] args) throws Exception {
-		Job job = new Job(getConf());
+		Job job1 = new Job(getConf());
 
-		job.setJarByClass(Aegisthus.class);
+		job1.setJarByClass(Aegisthus.class);
 		CommandLine cl = getOptions(args);
 		if (cl == null) {
 			return 1;
 		}
-		job.setInputFormatClass(AegisthusInputFormat.class);
-		job.setMapOutputKeyClass(Text.class);
-		job.setMapOutputValueClass(Text.class);
-		job.setOutputFormatClass(TextOutputFormat.class);
-		job.setMapperClass(Map.class);
-		job.setReducerClass(CassReducer.class);
+		job1.setInputFormatClass(AegisthusInputFormat.class);
+		job1.setMapOutputKeyClass(Text.class);
+		job1.setMapOutputValueClass(Text.class);
+		job1.setOutputFormatClass(TextOutputFormat.class);
+		job1.setMapperClass(Map.class);
+		job1.setReducerClass(CassReducer.class);
 		List<Path> paths = Lists.newArrayList();
 		if (cl.hasOption(OPT_INPUT)) {
 			for (String input : cl.getOptionValues(OPT_INPUT)) {
@@ -141,15 +145,27 @@ public class Aegisthus extends Configured implements Tool {
 			}
 		}
 		if (cl.hasOption(OPT_INPUTDIR)) {
-			paths.addAll(getDataFiles(job.getConfiguration(), cl.getOptionValue(OPT_INPUTDIR)));
+			paths.addAll(getDataFiles(job1.getConfiguration(), cl.getOptionValue(OPT_INPUTDIR)));
 		}
-		TextInputFormat.setInputPaths(job, paths.toArray(new Path[0]));
-		TextOutputFormat.setOutputPath(job, new Path(cl.getOptionValue(OPT_OUTPUT)));
+		TextInputFormat.setInputPaths(job1, paths.toArray(new Path[0]));
+		TextOutputFormat.setOutputPath(job1, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
+		
+		job1.submit();
+		job1.waitForCompletion(true);
+		
+		Job job2 = new Job(getConf());
+		job2.setJarByClass(Aegisthus.class);
+		job2.setInputFormatClass(AegisthusInputFormat.class);
+		job2.setMapOutputKeyClass(Text.class);
+		job2.setMapOutputValueClass(Text.class);
+		job2.setOutputFormatClass(TextOutputFormat.class);
+		job2.setMapperClass(Map.class);
+		AegisthusInputFormat.setInputPaths(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
+		TextOutputFormat.setOutputPath(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step2"));
 
-		job.submit();
-		System.out.println(job.getJobID());
-		System.out.println(job.getTrackingURL());
-		boolean success = job.waitForCompletion(true);
+		job2.submit();
+		job2.waitForCompletion(true);
+		boolean success = job2.isSuccessful();
 		return success ? 0 : 1;
 	}
 }

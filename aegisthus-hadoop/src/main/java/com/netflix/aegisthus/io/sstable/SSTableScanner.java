@@ -177,7 +177,8 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			int keysize = input.readUnsignedShort();
 			byte[] b = new byte[keysize];
 			input.readFully(b);
-			String key = keyConvertor.getString(ByteBuffer.wrap(b));
+			String key = getSanitizedName(ByteBuffer.wrap(b), keyConvertor);
+			LOG.info("The key is " + key);
 			datasize = input.readLong() + keysize + 2 + 8;
 			this.pos += datasize;
 			if (!promotedIndex) {
@@ -212,7 +213,6 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			str.append(", ");
 			insertKey(str, "columns");
 			str.append("[");
-            LOG.info("Column count: " + columnCount);
 			serializeColumns(str, columnCount, input);
 			str.append("]");
 			str.append("}}\n");
@@ -234,10 +234,7 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			OnDiskAtom atom = serializer.deserializeFromSSTable(columns, Descriptor.Version.CURRENT);
 			if (atom instanceof IColumn) {
 			    IColumn column = (IColumn) atom;
-                String cn = columnNameConvertor
-                    .getString(column.name())
-                    .replaceAll("[\\s\\p{Cntrl}]", " ")
-                    .replace("\\", "\\\\");
+                String cn = getSanitizedName(column.name(), columnNameConvertor);
                 sb.append("[\"");
                 sb.append(cn);
                 sb.append("\", \"");
@@ -270,5 +267,11 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			    LOG.info("Found range tombstone! " + tomb.toString());
 			}
 		}
+	}
+	
+	private String getSanitizedName(ByteBuffer name, AbstractType convertor) {
+	    return convertor.getString(name)
+                    .replaceAll("[\\s\\p{Cntrl}]", " ")
+                    .replace("\\", "\\\\");
 	}
 }

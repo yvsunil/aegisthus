@@ -84,7 +84,8 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 			key.set(filename);
 		} else {
 			// a quick hack to pull out the rowkey from the json.
-			key.set(json.substring(2, json.indexOf(':') - 1));
+		    String keyName = json.substring(2, json.indexOf("\":")).replace("\\\\", "\\");
+			key.set(keyName);
 		}
 		value.set(json);
 		return true;

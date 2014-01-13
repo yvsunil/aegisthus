@@ -21,7 +21,11 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 public class SSTableReader {
+	private static final Log LOG = LogFactory.getLog(SSTableReader.class);
 
 	protected long datasize;
 	protected DataInput input;
@@ -41,6 +45,7 @@ public class SSTableReader {
 				return file.getFilePointer() != file.length();
 			}
 			if (end == -1) {
+			    LOG.info(((DataInputStream) input).available());
 				return ((DataInputStream) input).available() != 0;
 			} else {
 				return pos < end;

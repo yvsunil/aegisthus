@@ -100,7 +100,6 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 	public SSTableScanner(String filename, Map<String, AbstractType> converters, long start, long end) {
 		try {
 			this.promotedIndex = filename.matches(".*/[^/]+-ic-[^/]+$");
-            LOG.info("Promoted: " + this.promotedIndex);
 			init(	new DataInputStream(new BufferedInputStream(new FileInputStream(filename), 65536 * 10)),
 					converters,
 					end);
@@ -178,7 +177,6 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			byte[] b = new byte[keysize];
 			input.readFully(b);
 			String key = getSanitizedName(ByteBuffer.wrap(b), keyConvertor);
-			LOG.info("The key is " + key);
 			datasize = input.readLong() + keysize + 2 + 8;
 			this.pos += datasize;
 			if (!promotedIndex) {

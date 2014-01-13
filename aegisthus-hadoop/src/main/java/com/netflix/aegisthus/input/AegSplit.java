@@ -16,11 +16,16 @@
 package com.netflix.aegisthus.input;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Map;
 
 import org.apache.cassandra.exceptions.ConfigurationException;
@@ -36,6 +41,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapreduce.InputSplit;
+import org.xerial.snappy.SnappyInputStream;
 
 import com.google.common.collect.Maps;
 import com.netflix.aegisthus.io.sstable.compression.CompressionInputStream;
@@ -141,15 +147,57 @@ public class AegSplit extends InputSplit implements Writable {
 	}
 
 	public InputStream getInput(Configuration conf) throws IOException {
-		FileSystem fs = path.getFileSystem(conf);
-		FSDataInputStream fileIn = fs.open(path);
+	        if (path.getName().endsWith(".db")) { // Priam compresses files
+	          decompress(conf);
+	        }
+	        LOG.info("Paths: " + path + " " + compressedPath);
+		//FileSystem fs = path.getFileSystem(conf);
+		//FSDataInputStream fileIn = fs.open(path);
+	        FileInputStream fileIn = new FileInputStream(path.toString());
 		InputStream dis = new DataInputStream(new BufferedInputStream(fileIn));
 		if (compressed) {
-			FSDataInputStream cmIn = fs.open(compressedPath);
+                        FileInputStream cmIn = new FileInputStream(compressedPath.toString());
 			CompressionMetadata cm = new CompressionMetadata(new BufferedInputStream(cmIn), end - start);
 			dis = new CompressionInputStream(dis, cm);
 		}
 		return dis;
+	}
+	
+	private void decompress(Configuration conf) throws IOException {
+		String taskId = conf.get("mapred.task.id");
+		String mapTempDir = conf.get("mapred.temp.dir");
+		String tempDir = mapTempDir + File.separator + taskId + File.separator;
+		new File(tempDir).mkdirs();
+	        
+		// decompress Data and Compression info
+		Path newPath = new Path(tempDir + path.getName());
+		Path newCompressedPath = new Path(tempDir + compressedPath.getName());
+		decompressAndClose(conf, path, newPath);
+		decompressAndClose(conf, compressedPath, newCompressedPath);
+		
+		path = newPath;
+		compressedPath = newCompressedPath;
+	}
+	
+	private void decompressAndClose(Configuration conf, Path inPath, Path outPath) throws IOException {
+	   LOG.info("Decompressing " + inPath.toUri() + " to " + outPath.toUri()); 
+
+	   int BUFFER = 2 * 1024;
+	   
+	   FileSystem fs = inPath.getFileSystem(conf);
+	   InputStream in = fs.open(inPath);
+	   SnappyInputStream is = new SnappyInputStream(new BufferedInputStream(in));
+	   
+	   BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(outPath.toString()), BUFFER);
+	   
+	   int c;
+	   byte data[] = new byte[BUFFER];
+	   while ((c = is.read(data, 0, BUFFER)) != -1) {
+	       dest.write(data, 0, c);
+	   }
+	   
+	   is.close();
+	   dest.close();
 	}
 
 	@Override

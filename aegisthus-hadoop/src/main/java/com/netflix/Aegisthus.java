@@ -159,7 +159,7 @@ public class Aegisthus extends Configured implements Tool {
 		job2.setMapOutputKeyClass(Text.class);
 		job2.setMapOutputValueClass(Text.class);
 		job2.setOutputFormatClass(TextOutputFormat.class);
-		job2.setMapperClass(Map.class);
+		job2.setMapperClass(KvsStrictMapper.class);
 		AegisthusInputFormat.setInputPaths(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
 		TextOutputFormat.setOutputPath(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step2"));
 

@@ -78,7 +78,7 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 		JsonEncoding.UTF8);
 
 	jsonGen.writeStartObject();
-
+	
 	for (Object colObj : data.values()) {
 	    List<Object> col = (List<Object>) colObj;
 
@@ -104,10 +104,12 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 		currentVersion = version;
 	    } else if (!currentVersion.equals(version)) {
 		if (Integer.parseInt(currentVersion) < Integer.parseInt(version)) {
-		    throw new RuntimeException(
-			    "Columns were not in the right sort order!" + data);
+		    out.close();
+		    out = new ByteArrayOutputStream();
+		    jsonGen = jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8);
+		    jsonGen.writeStartObject();
+		    currentVersion = version;
 		}
-		break; // omit older versions
 	    }
 
 	    writeColumn(jsonGen, colName, colValue);
@@ -120,6 +122,7 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 	    context.write(new Text(rowKey.toString() + "@" + currentVersion),
 		    new Text(out.toByteArray()));
 	}
+	out.close();
     }
 
     private void writeColumn(JsonGenerator json, String colName, DataByteArray colData) throws JsonGenerationException, IOException {

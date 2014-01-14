@@ -148,15 +148,14 @@ public class AegSplit extends InputSplit implements Writable {
 
 	public InputStream getInput(Configuration conf) throws IOException {
 	        if (path.getName().endsWith(".db")) { // Priam compresses files
-	          decompress(conf);
+                    decompress(conf);
 	        }
+                FileSystem fs = path.getFileSystem(conf);
+                InputStream fileIn = fs.open(path);
 	        LOG.info("Paths: " + path + " " + compressedPath);
-		//FileSystem fs = path.getFileSystem(conf);
-		//FSDataInputStream fileIn = fs.open(path);
-	        FileInputStream fileIn = new FileInputStream(path.toString());
 		InputStream dis = new DataInputStream(new BufferedInputStream(fileIn));
 		if (compressed) {
-                        FileInputStream cmIn = new FileInputStream(compressedPath.toString());
+                        InputStream cmIn = fs.open(compressedPath);
 			CompressionMetadata cm = new CompressionMetadata(new BufferedInputStream(cmIn), end - start);
 			dis = new CompressionInputStream(dis, cm);
 		}
@@ -170,8 +169,8 @@ public class AegSplit extends InputSplit implements Writable {
 		new File(tempDir).mkdirs();
 	        
 		// decompress Data and Compression info
-		Path newPath = new Path(tempDir + path.getName());
-		Path newCompressedPath = new Path(tempDir + compressedPath.getName());
+		Path newPath = new Path("file://" + tempDir + path.getName());
+		Path newCompressedPath = new Path("file://" + tempDir + compressedPath.getName());
 		decompressAndClose(conf, path, newPath);
 		decompressAndClose(conf, compressedPath, newCompressedPath);
 		
@@ -188,7 +187,8 @@ public class AegSplit extends InputSplit implements Writable {
 	   InputStream in = fs.open(inPath);
 	   SnappyInputStream is = new SnappyInputStream(new BufferedInputStream(in));
 	   
-	   BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(outPath.toString()), BUFFER);
+	   OutputStream out = outPath.getFileSystem(conf).create(outPath);
+	   BufferedOutputStream dest = new BufferedOutputStream(out, BUFFER);
 	   
 	   int c;
 	   byte data[] = new byte[BUFFER];

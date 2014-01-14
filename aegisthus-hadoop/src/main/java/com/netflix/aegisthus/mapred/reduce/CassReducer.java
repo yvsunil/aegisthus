@@ -54,7 +54,7 @@ public class CassReducer extends Reducer<Text, Text, Text, Text> {
 			return;
 		}
 		for (Text val : valuesSet) {
-			Map<String, Object> map = as.deserialize(val.toString());
+			Map<String, Object> map = as.deserialize(val.getBytes(), val.getLength());
 			// The json has one key value pair, the data is always under the
 			// first key so do it once to save lookup
 			rowKey = map.remove(AegisthusSerializer.KEY);

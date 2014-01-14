@@ -45,60 +45,72 @@ public class AegisthusSerializer {
 	public Object type(String value) {
 		return value;
 	}
-
+	
 	public Map<String, Object> deserialize(String data) throws IOException {
-		try {
-			Map<String, Object> map = new LinkedHashMap<String, Object>();
-			JsonParser jp = jsonFactory.createJsonParser(data);
-			jp.nextToken(); // Object
-			jp.nextToken(); // key
-			map.put(KEY, new DataByteArray(jp.getCurrentName().getBytes()));
-			jp.nextToken(); // object
-			while (jp.nextToken() != JsonToken.END_OBJECT) {
-				String field = jp.getCurrentName();
-				if (DELETEDAT.equals(field.toUpperCase())) {
+            try {
+                return deserialize(jsonFactory.createJsonParser(data));
+            } catch (IOException e) {
+                LOG.error(data);
+                throw e;
+            }
+	}
+	
+	public Map<String, Object> deserialize(byte[] data, int length) throws IOException {
+            try {
+                return deserialize(jsonFactory.createJsonParser(data, 0, length));
+            } catch (IOException e) {
+                LOG.error(new String(data, "UTF8"));
+                throw e;
+            }
+	}
+
+	private Map<String, Object> deserialize(JsonParser jp) throws IOException {
+		Map<String, Object> map = new LinkedHashMap<String, Object>();
+		jp.nextToken(); // Object
+		jp.nextToken(); // key
+		map.put(KEY, new DataByteArray(jp.getCurrentName().getBytes()));
+		jp.nextToken(); // object
+		while (jp.nextToken() != JsonToken.END_OBJECT) {
+			String field = jp.getCurrentName();
+			if (DELETEDAT.equals(field.toUpperCase())) {
+				jp.nextToken();
+				map.put(DELETEDAT, jp.getLongValue());
+			} else {
+				jp.nextToken();
+				while (jp.nextToken() != JsonToken.END_ARRAY) {
+					List<Object> cols = new ArrayList<Object>();
 					jp.nextToken();
-					map.put(DELETEDAT, jp.getLongValue());
-				} else {
+					String name = jp.getText();
+					cols.add(name);
 					jp.nextToken();
-					while (jp.nextToken() != JsonToken.END_ARRAY) {
-						List<Object> cols = new ArrayList<Object>();
-						jp.nextToken();
-						String name = jp.getText();
-						cols.add(name);
-						jp.nextToken();
-						cols.add(new DataByteArray(jp.getText().getBytes()));
-						jp.nextToken();
-						cols.add(jp.getLongValue());
-						if (jp.nextToken() != JsonToken.END_ARRAY) {
-							String status = jp.getText();
-							cols.add(status);
-							if ("e".equals(status)) {
-								jp.nextToken();
-								cols.add(jp.getLongValue());
-								jp.nextToken();
-								cols.add(jp.getLongValue());
-							} else if ("c".equals(status)) {
-								jp.nextToken();
-								cols.add(jp.getLongValue());
-							}
+					cols.add(new DataByteArray(jp.getText().getBytes()));
+					jp.nextToken();
+					cols.add(jp.getLongValue());
+					if (jp.nextToken() != JsonToken.END_ARRAY) {
+						String status = jp.getText();
+						cols.add(status);
+						if ("e".equals(status)) {
 							jp.nextToken();
+							cols.add(jp.getLongValue());
+							jp.nextToken();
+							cols.add(jp.getLongValue());
+						} else if ("c".equals(status)) {
+							jp.nextToken();
+							cols.add(jp.getLongValue());
 						}
-						map.put(name, cols);
+						jp.nextToken();
 					}
+					map.put(name, cols);
 				}
 			}
-
-			return map;
-		} catch (IOException e) {
-			LOG.error(data);
-			throw e;
 		}
+
+		return map;
 	}
 
 	protected static void insertKey(StringBuilder sb, Object value) {
 		sb.append("\"");
-		sb.append(value);
+		sb.append(value.toString().replace("\\", "\\\\"));
 		sb.append("\": ");
 	}
 

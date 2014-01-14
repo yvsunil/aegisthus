@@ -66,7 +66,7 @@ public class Aegisthus extends Configured implements Tool {
 
 		System.exit(res);
 	}
-
+	
 	protected List<Path> getDataFiles(Configuration conf, String dir) throws IOException {
 		Set<String> globs = Sets.newHashSet();
 		List<Path> output = Lists.newArrayList();
@@ -83,6 +83,7 @@ public class Aegisthus extends Configured implements Tool {
 		}
 		return output;
 	}
+	
 
 	@SuppressWarnings("static-access")
 	public CommandLine getOptions(String[] args) {

@@ -72,7 +72,7 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 		.remove(AegisthusSerializer.KEY);
 	data.remove(AegisthusSerializer.DELETEDAT);
 
-	String currentVersion = null;
+	int currentVersion = -1;
 	ByteArrayOutputStream out = new ByteArrayOutputStream();
 	JsonGenerator jsonGen = jsonFactory.createJsonGenerator(out,
 		JsonEncoding.UTF8);
@@ -97,28 +97,28 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 		LOG.warn("couldn't parse name: " + name);
 	    }
 
-	    String version = nameParts[0];
+	    int version = Integer.parseInt(nameParts[0]);
 	    String colName = nameParts[1];
 
-	    if (currentVersion == null) {
+	    if (currentVersion == -1) {
 		currentVersion = version;
-	    } else if (!currentVersion.equals(version)) {
-		if (Integer.parseInt(currentVersion) < Integer.parseInt(version)) {
-		    out.close();
-		    out = new ByteArrayOutputStream();
-		    jsonGen = jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8);
-		    jsonGen.writeStartObject();
-		    currentVersion = version;
-		}
+	    } else if (currentVersion < version) {
+                out.close();
+                out = new ByteArrayOutputStream();
+                jsonGen = jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8);
+                jsonGen.writeStartObject();
+                currentVersion = version;
 	    }
 
-	    writeColumn(jsonGen, colName, colValue);
+	    if (version == currentVersion) {
+                writeColumn(jsonGen, colName, colValue);
+	    }
 	}
 
 	jsonGen.writeEndObject();
 	jsonGen.flush();
 
-	if (currentVersion != null) {
+	if (currentVersion != -1) {
 	    context.write(new Text(rowKey.toString() + "@" + currentVersion),
 		    new Text(out.toByteArray()));
 	}

@@ -3,6 +3,8 @@ package com.netflix;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.cql3.QueryProcessor;
 import org.apache.cassandra.cql3.statements.CreateColumnFamilyStatement;
 import org.apache.cassandra.db.ColumnFamilyType;
+import org.apache.cassandra.db.marshal.AbstractCompositeType;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BooleanType;
 import org.apache.cassandra.db.marshal.BytesType;
@@ -119,7 +122,7 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 	jsonGen.flush();
 
 	if (currentVersion != -1) {
-	    context.write(new Text(rowKey.toString() + "@" + currentVersion),
+	    context.write(new Text(formatKey(rowKey.toString()) + "\t" + currentVersion),
 		    new Text(out.toByteArray()));
 	}
 	out.close();
@@ -147,6 +150,32 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 	    json.writeString(UTF8Type.instance.compose(wrappedColData));
 	    //json.writeString(colData.toString());
 	}
+    }
+    
+    private String formatKey(String key) {
+	List<String> parts = splitKey(key);
+	StringBuilder res = new StringBuilder();
+	for (int i = 0; i < parts.size(); i++) {
+	    if (i > 0) res.append('\t');
+	    res.append(parts.get(i).replace("\\:", ":"));
+	}
+	return res.toString();
+    }
+    
+    private List<String> splitKey(String input) {
+	if (input.isEmpty()) return Collections.emptyList();
+	
+	List<String> res = new ArrayList<String>();
+	int last = 0;
+	for (int i = 0; i < input.length(); i++) {
+	    if (input.charAt(i) == ':' && (i > 0 && input.charAt(i - 1) != '\\')) {
+		res.add(input.substring(last, i));
+		last = i + 1;
+	    }
+	}
+
+	res.add(input.substring(last, input.length()));
+	return res;
     }
 
 }

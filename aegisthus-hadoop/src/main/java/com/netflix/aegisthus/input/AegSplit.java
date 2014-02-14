@@ -157,6 +157,7 @@ public class AegSplit extends InputSplit implements Writable {
 		if (compressed) {
                         InputStream cmIn = fs.open(compressedPath);
 			CompressionMetadata cm = new CompressionMetadata(new BufferedInputStream(cmIn), end - start);
+			end = cm.getDataLength();
 			dis = new CompressionInputStream(dis, cm);
 		}
 		return dis;

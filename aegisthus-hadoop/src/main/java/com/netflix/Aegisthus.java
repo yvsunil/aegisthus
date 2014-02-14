@@ -154,6 +154,8 @@ public class Aegisthus extends Configured implements Tool {
 		job1.submit();
 		job1.waitForCompletion(true);
 		
+		if (!job1.isSuccessful()) System.exit(2);
+		
 		Job job2 = new Job(getConf());
 		job2.setJarByClass(Aegisthus.class);
 		job2.setInputFormatClass(AegisthusInputFormat.class);

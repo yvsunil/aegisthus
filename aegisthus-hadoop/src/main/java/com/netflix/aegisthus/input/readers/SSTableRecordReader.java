@@ -51,29 +51,29 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 		filename = split.getPath().toUri().toString();
 
 		LOG.info(String.format("File: %s", split.getPath().toUri().getPath()));
-		LOG.info("Start: " + start);
-		LOG.info("End: " + end);
-
 		//TODO: should switch over to Cassandra's mechanism
 		boolean promotedIndex = filename.matches("/[^/]+-ic-[^/]+$");
         LOG.info("RR Promoted" + promotedIndex);
         promotedIndex = true;
 		try {
-			scanner = new SSTableScanner(	new DataInputStream(split.getInput(ctx.getConfiguration())),
-											split.getConvertors(),
-											end,
-											promotedIndex);
+		        DataInputStream stream = new DataInputStream(split.getInput(ctx.getConfiguration()));
+                        end = split.getEnd();
+			scanner = new SSTableScanner(	stream, split.getConvertors(), end, promotedIndex);
 			scanner.skipUnsafe(start);
 			this.pos = start;
 		} catch (IOException e) {
 			throw new IOError(e);
 		}
 
+		LOG.info("Start: " + start);
+		LOG.info("End: " + end);
+
 	}
 
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
 		if (pos >= end) {
+		    LOG.info("Done!: has more " + scanner.hasNext() + " pos " + pos);
 			return false;
 		}
 		String json = null;

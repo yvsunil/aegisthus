@@ -211,7 +211,12 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			str.append(", ");
 			insertKey(str, "columns");
 			str.append("[");
-			serializeColumns(str, columnCount, input);
+			if (datasize > 100000000) {
+			  LOG.info("Skipping row [" + key + "] with too much data: " + datasize);
+                          serializeColumns(str, columnCount, input, true);
+			} else {
+                          serializeColumns(str, columnCount, input, false);
+			}
 			str.append("]");
 			str.append("}}\n");
 		} catch (IOException e) {
@@ -227,9 +232,14 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 	}
 
 	public void serializeColumns(StringBuilder sb, int count, DataInput columns) throws IOException {
+	  serializeColumns(sb, count, columns, false);
+	}
+
+	public void serializeColumns(StringBuilder sb, int count, DataInput columns, Boolean skip) throws IOException {
 		for (int i = 0; i < count; i++) {
 			// serialize columns
 			OnDiskAtom atom = serializer.deserializeFromSSTable(columns, Descriptor.Version.CURRENT);
+			if (skip) continue;
 			if (atom instanceof IColumn) {
 			    IColumn column = (IColumn) atom;
                 String cn = getSanitizedName(column.name(), columnNameConvertor);

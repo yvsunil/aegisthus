@@ -177,6 +177,10 @@ public class AegSplit extends InputSplit implements Writable {
 		
 		path = newPath;
 		compressedPath = newCompressedPath;
+		
+		// update end
+		FileSystem fs = path.getFileSystem(conf);
+		end = fs.getFileStatus(path).getLen();
 	}
 	
 	private void decompressAndClose(Configuration conf, Path inPath, Path outPath) throws IOException {

@@ -27,6 +27,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import org.apache.cassandra.io.sstable.Descriptor;
+
 import com.netflix.aegisthus.input.AegSplit;
 import com.netflix.aegisthus.io.commitlog.CommitLogScanner;
 
@@ -59,7 +61,8 @@ public class CommitLogRecordReader extends AegisthusRecordReader {
 			FileSystem fs = file.getFileSystem(ctx.getConfiguration());
 			FSDataInputStream fileIn = fs.open(split.getPath());
 			InputStream dis = new BufferedInputStream(fileIn);
-			scanner = new CommitLogScanner(new DataInputStream(dis), split.getConvertors());
+			scanner = new CommitLogScanner(new DataInputStream(dis), split.getConvertors(),
+          Descriptor.fromFilename(split.getPath().getName()).version);
 			this.pos = start;
 		} catch (IOException e) {
 			throw new IOError(e);

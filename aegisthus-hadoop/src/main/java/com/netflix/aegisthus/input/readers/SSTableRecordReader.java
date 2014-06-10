@@ -24,6 +24,8 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import org.apache.cassandra.io.sstable.Descriptor;
+
 import com.netflix.aegisthus.input.AegSplit;
 import com.netflix.aegisthus.io.sstable.SSTableScanner;
 
@@ -52,13 +54,10 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 
 		LOG.info(String.format("File: %s", split.getPath().toUri().getPath()));
 		//TODO: should switch over to Cassandra's mechanism
-		boolean promotedIndex = filename.matches("/[^/]+-ic-[^/]+$");
-        LOG.info("RR Promoted" + promotedIndex);
-        promotedIndex = true;
 		try {
 		        DataInputStream stream = new DataInputStream(split.getInput(ctx.getConfiguration()));
                         end = split.getEnd();
-			scanner = new SSTableScanner(	stream, split.getConvertors(), end, promotedIndex);
+			scanner = new SSTableScanner(stream, split.getConvertors(), end, Descriptor.fromFilename(filename).version);
 			scanner.skipUnsafe(start);
 			this.pos = start;
 		} catch (IOException e) {
@@ -73,7 +72,6 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
 		if (pos >= end) {
-		    LOG.info("Done!: has more " + scanner.hasNext() + " pos " + pos);
 			return false;
 		}
 		String json = null;

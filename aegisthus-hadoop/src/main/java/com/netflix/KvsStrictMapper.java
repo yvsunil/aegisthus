@@ -14,13 +14,13 @@ import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.cql3.CFDefinition;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.cql3.QueryProcessor;
-import org.apache.cassandra.cql3.statements.CreateColumnFamilyStatement;
+import org.apache.cassandra.cql3.statements.CreateTableStatement;
 import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.db.marshal.AbstractCompositeType;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.BooleanType;
 import org.apache.cassandra.db.marshal.BytesType;
-import org.apache.cassandra.db.marshal.DateType;
+import org.apache.cassandra.db.marshal.TimestampType;
 import org.apache.cassandra.db.marshal.Int32Type;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.hadoop.io.Text;
@@ -49,14 +49,14 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
     static {
 	try {
 	    String cql = "CREATE TABLE assess.kvs_strict ( part_key text, range_key text, version int, c_enc text, c_schema_ver text, content blob, is_deleted boolean, m_enc text, m_schema_ver text, metadata blob, modified timestamp, PRIMARY KEY ((part_key, range_key), version)) WITH CLUSTERING ORDER BY (version DESC) AND bloom_filter_fp_chance=0.010000 AND caching='KEYS_ONLY' AND comment='' AND dclocal_read_repair_chance=0.000000 AND gc_grace_seconds=864000 AND read_repair_chance=0.100000 AND replicate_on_write='true' AND populate_io_cache_on_flush='false' AND compaction={'class': 'SizeTieredCompactionStrategy'} AND compression={'sstable_compression': 'SnappyCompressor'};";
-	    CreateColumnFamilyStatement statement = (CreateColumnFamilyStatement) QueryProcessor
+	    CreateTableStatement statement = (CreateTableStatement) QueryProcessor
 		    .parseStatement(cql).prepare().statement;
 	    cfm = new CFMetaData("assess", "kvs_strict",
 		    ColumnFamilyType.Standard, statement.comparator, null);
 	    statement.applyPropertiesTo(cfm);
+      cfm.rebuild();
 
 	    cfd = cfm.getCfDef();
-	    LOG.info("cf def " + cfd);
 	} catch (Exception e) {
 	    throw new RuntimeException(e);
 	}
@@ -140,8 +140,8 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 	    json.writeNumber(Int32Type.instance.compose(wrappedColData));
 	} else if (type instanceof UTF8Type) {
 	    json.writeString(UTF8Type.instance.compose(wrappedColData));
-	} else if (type instanceof DateType) {
-	    Date date = DateType.instance.compose(wrappedColData);
+	} else if (type instanceof TimestampType) {
+	    Date date = TimestampType.instance.compose(wrappedColData);
 	    json.writeNumber(date.getTime());
 	} else if (type instanceof BooleanType) {
 	    json.writeBoolean(BooleanType.instance.compose(wrappedColData));

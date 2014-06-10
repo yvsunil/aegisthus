@@ -26,10 +26,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.TypeParser;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.exceptions.SyntaxException;
+import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -54,6 +55,8 @@ public class SSTableExport {
 	private static final String ROWSIZE = "r";
 	private static final String COLUMN_NAME_TYPE = "c";
 	private static final String OPT_COMP = "comp";
+	private static final String OPT_MAX_COLUMN_SIZE = "colSize";
+	private static final String OPT_VERSION = "v";
 
 	static {
 		options.addOption(new Option(ROWSIZE, false, "Output row sizes"));
@@ -64,15 +67,22 @@ public class SSTableExport {
 		optCompression.setArgs(1);
 		options.addOption(optCompression);
 
-		Option optColumnNameType = new Option(	COLUMN_NAME_TYPE,
-												true,
-												"String indicating columns name types (AsciiType)");
+		Option optColumnNameType = new Option(COLUMN_NAME_TYPE, true,
+				"String indicating columns name types (AsciiType)");
 		optColumnNameType.setArgs(1);
 		options.addOption(optColumnNameType);
 
-		Option optEnd = new Option(END, true, "Output row sizes");
+		Option optVersion = new Option(OPT_VERSION, true, "file version (e.g ic or hf)");
+		optVersion.setArgs(1);
+		options.addOption(optVersion);
+
+		Option optEnd = new Option(END, true, "byte offset to end reading at");
 		optEnd.setArgs(1);
 		options.addOption(optEnd);
+
+		Option optColSize = new Option(OPT_MAX_COLUMN_SIZE, true, "Max Column Size in Bytes");
+		optColSize.setArgs(1);
+		options.addOption(optColSize);
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -95,7 +105,7 @@ public class SSTableExport {
 		export(new OffsetScanner(ssTableFile), true);
 	}
 
-	public static void exportIndexSplit(String ssTableFile, DataInput input) throws IOException {
+	public static void exportIndexSplit(String ssTableFile, DataInput input, Descriptor.Version version) throws IOException {
 		Iterator<Long> scanner = new OffsetScanner(input);
 
 		long maxSplitSize = Long.getLong("aegisthus.block.size", 67108864);
@@ -119,8 +129,8 @@ public class SSTableExport {
 		export(new SSTableSplitScanner(ssTableFile), true);
 	}
 
-	public static void exportStream() throws IOException {
-		export(new SSTableScanner(new DataInputStream(System.in), true));
+	public static void exportStream(Descriptor.Version version) throws IOException {
+		export(new SSTableScanner(new DataInputStream(System.in), version));
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -159,6 +169,10 @@ public class SSTableExport {
 				System.exit(1);
 			}
 		}
+		Descriptor.Version version = null;
+		if (cmd.hasOption(OPT_VERSION)) {
+			version = new Descriptor.Version(cmd.getOptionValue(OPT_VERSION));
+		}
 
 		if (cmd.hasOption(INDEX_SPLIT)) {
 			String ssTableFileName;
@@ -170,7 +184,10 @@ public class SSTableExport {
 				ssTableFileName = new File(cmd.getArgs()[0]).getAbsolutePath();
 				input = new DataInputStream(new BufferedInputStream(new FileInputStream(ssTableFileName), 65536 * 10));
 			}
-			exportIndexSplit(ssTableFileName, input);
+			if (version == null) {
+				version = Descriptor.fromFilename(ssTableFileName).version;
+			}
+			exportIndexSplit(ssTableFileName, input, version);
 		} else if (cmd.hasOption(INDEX)) {
 			String ssTableFileName = new File(cmd.getArgs()[0]).getAbsolutePath();
 			exportIndex(ssTableFileName);
@@ -178,28 +195,33 @@ public class SSTableExport {
 			String ssTableFileName = new File(cmd.getArgs()[0]).getAbsolutePath();
 			exportRowSize(ssTableFileName);
 		} else if ("-".equals(cmd.getArgs()[0])) {
-			exportStream();
+			if (version == null) {
+				System.err.println("when streaming must supply file version");
+				HelpFormatter formatter = new HelpFormatter();
+				formatter.printHelp(usage, options);
+				System.exit(1);
+			}
+			exportStream(version);
 		} else {
 			String ssTableFileName = new File(cmd.getArgs()[0]).getAbsolutePath();
 			FileInputStream fis = new FileInputStream(ssTableFileName);
 			InputStream inputStream = new DataInputStream(new BufferedInputStream(fis, 65536 * 10));
+			long end = -1;
+			if (cmd.hasOption(END)) {
+				end = Long.valueOf(cmd.getOptionValue(END));
+			}
 			if (cmd.hasOption(OPT_COMP)) {
-				CompressionMetadata cm = new CompressionMetadata(	new BufferedInputStream(new FileInputStream(cmd.getOptionValue(OPT_COMP)),
-																							65536),
-																	fis.getChannel().size());
+				CompressionMetadata cm = new CompressionMetadata(new BufferedInputStream(new FileInputStream(
+						cmd.getOptionValue(OPT_COMP)), 65536), fis.getChannel().size());
 				inputStream = new CompressionInputStream(inputStream, cm);
-
+				end = cm.getDataLength();
 			}
 			DataInputStream input = new DataInputStream(inputStream);
-			//TODO: should switch over to Cassandra's mechanism
-			boolean promotedIndex = ssTableFileName.matches(".*/[^/]+-ib-[^/]+$");
-
-			if (cmd.hasOption(END)) {
-				long end = Long.valueOf(cmd.getOptionValue(END));
-				export(new SSTableScanner(input, convertors, end, promotedIndex));
-			} else {
-				export(new SSTableScanner(input, convertors, promotedIndex));
+			if (version == null) {
+				version = Descriptor.fromFilename(ssTableFileName).version;
 			}
+			SSTableScanner scanner = new SSTableScanner(input, convertors, end, version);
+			export(scanner);
 		}
 	}
 }

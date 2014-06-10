@@ -55,7 +55,7 @@ project(':aegisthus-hadoop') {
 
     dependencies {
         includeInJar project(':aegisthus-core')
-        includeInJar 'org.apache.cassandra:cassandra-all:1.2.11'
+        includeInJar 'org.apache.cassandra:cassandra-all:2.0.7'
 
         compile 'org.slf4j:slf4j-api:1.6.3'
         compile 'org.apache.hadoop:hadoop-common:' + (project.hasProperty('hadoopVersion') ? hadoopVersion : '1.1.0')

@@ -1,23 +1,11 @@
-/**
- * Copyright 2013 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package com.netflix;
+package org.coursera;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Set;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+
+import com.netflix.aegisthus.input.AegisthusInputFormat;
+import com.netflix.aegisthus.mapred.reduce.CassReducer;
+import com.netflix.aegisthus.tools.DirectoryWalker;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -38,15 +26,12 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.coursera.KvsStrictMapper;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.netflix.aegisthus.input.AegisthusInputFormat;
-import com.netflix.aegisthus.mapred.reduce.CassReducer;
-import com.netflix.aegisthus.tools.DirectoryWalker;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
-public class Aegisthus extends Configured implements Tool {
+public class KvsStrict extends Configured implements Tool {
 	public static class Map extends Mapper<Text, Text, Text, Text> {
 		@Override
 		protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
@@ -59,11 +44,11 @@ public class Aegisthus extends Configured implements Tool {
 	private static final String OPT_OUTPUT = "output";
 
 	public static void main(String[] args) throws Exception {
-		int res = ToolRunner.run(new Configuration(), new Aegisthus(), args);
+		int res = ToolRunner.run(new Configuration(), new KvsStrict(), args);
 
 		System.exit(res);
 	}
-	
+
 	protected List<Path> getDataFiles(Configuration conf, String dir) throws IOException {
 		Set<String> globs = Sets.newHashSet();
 		List<Path> output = Lists.newArrayList();
@@ -80,7 +65,7 @@ public class Aegisthus extends Configured implements Tool {
 		}
 		return output;
 	}
-	
+
 
 	@SuppressWarnings("static-access")
 	public CommandLine getOptions(String[] args) {
@@ -108,14 +93,14 @@ public class Aegisthus extends Configured implements Tool {
 			if (!(cl.hasOption(OPT_INPUT) || cl.hasOption(OPT_INPUTDIR))) {
 				System.out.println("Must have either an input or inputDir option");
 				HelpFormatter formatter = new HelpFormatter();
-				formatter.printHelp(String.format("hadoop jar aegsithus.jar %s", Aegisthus.class.getName()), opts);
+				formatter.printHelp(String.format("hadoop jar aegsithus.jar %s", KvsStrict.class.getName()), opts);
 				return null;
 			}
 			return cl;
 		} catch (ParseException e) {
 			System.out.println("Unexpected exception:" + e.getMessage());
 			HelpFormatter formatter = new HelpFormatter();
-			formatter.printHelp(String.format("hadoop jar aegisthus.jar %s", Aegisthus.class.getName()), opts);
+			formatter.printHelp(String.format("hadoop jar aegisthus.jar %s", KvsStrict.class.getName()), opts);
 			return null;
 		}
 
@@ -123,34 +108,23 @@ public class Aegisthus extends Configured implements Tool {
 
 	@Override
 	public int run(String[] args) throws Exception {
-		Job job1 = new Job(getConf());
+                CommandLine cl = getOptions(args);
+                if (cl == null) {
+                        return 1;
+                }
 
-		job1.setJarByClass(Aegisthus.class);
-		CommandLine cl = getOptions(args);
-		if (cl == null) {
-			return 1;
-		}
+		Job job1 = new Job(getConf());
+		job1.setJarByClass(KvsStrict.class);
 		job1.setInputFormatClass(AegisthusInputFormat.class);
 		job1.setMapOutputKeyClass(Text.class);
 		job1.setMapOutputValueClass(Text.class);
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setMapperClass(Map.class);
-		job1.setReducerClass(CassReducer.class);
-		List<Path> paths = Lists.newArrayList();
-		if (cl.hasOption(OPT_INPUT)) {
-			for (String input : cl.getOptionValues(OPT_INPUT)) {
-				paths.add(new Path(input));
-			}
-		}
-		if (cl.hasOption(OPT_INPUTDIR)) {
-			paths.addAll(getDataFiles(job1.getConfiguration(), cl.getOptionValue(OPT_INPUTDIR)));
-		}
-		TextInputFormat.setInputPaths(job1, paths.toArray(new Path[0]));
+		job1.setMapperClass(KvsStrictMapper.class);
+		AegisthusInputFormat.setInputPaths(job1, new Path(cl.getOptionValue(OPT_INPUT)));
 		TextOutputFormat.setOutputPath(job1, new Path(cl.getOptionValue(OPT_OUTPUT)));
-		
+
 		job1.submit();
 		job1.waitForCompletion(true);
-		
 		boolean success = job1.isSuccessful();
 		return success ? 0 : 1;
 	}

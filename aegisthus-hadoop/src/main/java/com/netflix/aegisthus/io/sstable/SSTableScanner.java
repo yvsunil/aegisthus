@@ -238,7 +238,7 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 	public long serializeColumns(StringBuilder sb, int count, DataInput columns) throws IOException {
 		int sbStartPos = sb.length();	// in case we need to rewind later (large column)
 		boolean moreThanOne = false;
-		boolean skip = true;
+		boolean skip = false;
 		long colsize = 2L;		// END_OF_ROW marker is 2 bytes
 
 		// this method is tricky, since in 2.0 we don't actually have a column count.
